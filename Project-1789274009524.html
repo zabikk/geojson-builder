@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoJSON Generator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .card {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        input[type="number"], input[type="text"], select {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        input[type="color"] {
+            padding: 2px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            height: 34px;
+            width: 50px;
+            cursor: pointer;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button.success {
+            background-color: #2ecc71;
+        }
+        button.success:hover {
+            background-color: #27ae60;
+        }
+        .feature-box {
+            border: 1px solid #e1e8ed;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            background-color: #fafbfc;
+        }
+        .feature-box .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .feature-box h3 {
+            margin: 0;
+            font-size: 16px;
+            white-space: nowrap;
+        }
+        .title-input-container {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 200px;
+        }
+        .title-input-container input {
+            width: 100%;
+        }
+        .style-container {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+            background: #f1f4f5;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .style-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        textarea {
+            width: 100%;
+            height: 80px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+            font-family: monospace;
+            box-sizing: border-box;
+            margin-top: 5px;
+        }
+        #outputArea {
+            height: 250px;
+            background-color: #2b2b2b;
+            color: #a9b7c6;
+        }
+        label {
+            font-weight: bold;
+        }
+        .hint {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+            display: block;
+        }
+        .style-hint {
+            font-size: 12px;
+            color: #555;
+            font-weight: normal;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>GeoJSON Builder</h1>
+
+    <div class="card">
+        <div class="controls">
+            <div>
+                <label for="numElements">How many elements?</label>
+                <input type="number" id="numElements" min="1" max="50" value="1">
+            </div>
+            <div>
+                <label for="coordFormat">My pasted coords are in:</label>
+                <select id="coordFormat">
+                    <option value="latlng">Latitude, Longitude</option>
+                    <option value="lnglat">Longitude, Latitude</option>
+                </select>
+            </div>
+            <button onclick="generateInputFields()">Create Inputs</button>
+        </div>
+
+        <div id="inputsContainer"></div>
+        
+        <button class="success" id="generateBtn" style="display:none; width: 100%; margin-top: 10px;" onclick="buildGeoJSON()">Combine into GeoJSON</button>
+    </div>
+
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <label for="outputArea">Generated GeoJSON Code:</label>
+            <button onclick="copyToClipboard()" style="padding: 5px 10px; font-size: 14px;">Copy to Clipboard</button>
+        </div>
+        <textarea id="outputArea" readonly placeholder="Your combined GeoJSON will appear here..."></textarea>
+    </div>
+
+    <script>
+        function generateInputFields() {
+            const num = document.getElementById('numElements').value;
+            const container = document.getElementById('inputsContainer');
+            container.innerHTML = ''; 
+
+            for (let i = 1; i <= num; i++) {
+                const box = document.createElement('div');
+                box.className = 'feature-box';
+                box.innerHTML = `
+                    <div class="header-row">
+                        <h3>Element ${i}</h3>
+                        <div class="title-input-container">
+                            <label for="title_${i}">Title:</label>
+                            <input type="text" id="title_${i}" placeholder="e.g. Zone A, Route 1">
+                        </div>
+                        <select id="type_${i}">
+                            <option value="Point">Point (Marker)</option>
+                            <option value="LineString">LineString (Path)</option>
+                            <option value="Polygon">Polygon (Shape)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="style-container">
+                        <div class="style-group">
+                            <label for="stroke_${i}" class="style-hint">Border/Line:</label>
+                            <input type="color" id="stroke_${i}" value="#e74c3c">
+                        </div>
+                        <div class="style-group">
+                            <label for="fill_${i}" class="style-hint">Shade (Fill):</label>
+                            <input type="color" id="fill_${i}" value="#3498db">
+                        </div>
+                        <div class="style-group">
+                            <label for="marker_${i}" class="style-hint">Marker (Point):</label>
+                            <input type="color" id="marker_${i}" value="#7f8c8d">
+                        </div>
+                    </div>
+
+                    <span class="hint">Paste any text containing coordinates. We will auto-extract the numbers.</span>
+                    <textarea id="coords_${i}" placeholder="e.g. 44.2959, -88.5429 or [44.2959, -88.5429]"></textarea>
+                `;
+                container.appendChild(box);
+            }
+            document.getElementById('generateBtn').style.display = 'block';
+        }
+
+        function extractCoordinates(text, format) {
+            const regex = /-?\d+(?:\.\d+)?/g;
+            const matches = text.match(regex);
+            
+            if (!matches) return [];
+
+            let coords = [];
+            for (let i = 0; i < matches.length; i += 2) {
+                if (matches[i + 1] !== undefined) {
+                    let num1 = parseFloat(matches[i]);
+                    let num2 = parseFloat(matches[i + 1]);
+                    
+                    if (format === 'latlng') {
+                        coords.push([num2, num1]); 
+                    } else {
+                        coords.push([num1, num2]);
+                    }
+                }
+            }
+            return coords;
+        }
+
+        function buildGeoJSON() {
+            const num = document.getElementById('numElements').value;
+            const format = document.getElementById('coordFormat').value;
+            
+            let featureCollection = {
+                type: "FeatureCollection",
+                features: []
+            };
+
+            for (let i = 1; i <= num; i++) {
+                const type = document.getElementById(`type_${i}`).value;
+                const rawText = document.getElementById(`coords_${i}`).value;
+                const userTitle = document.getElementById(`title_${i}`).value.trim();
+                
+                // Fixed the syntax error here
+                const finalTitle = userTitle !== "" ? userTitle : "Element " + i;
+                
+                const pairedCoords = extractCoordinates(rawText, format);
+                if (pairedCoords.length === 0) continue; 
+
+                let finalGeometry = { type: type, coordinates: [] };
+                
+                let properties = { name: finalTitle };
+
+                const strokeColor = document.getElementById(`stroke_${i}`).value;
+                const fillColor = document.getElementById(`fill_${i}`).value;
+                const markerColor = document.getElementById(`marker_${i}`).value;
+
+                if (type === "Point") {
+                    finalGeometry.coordinates = pairedCoords[0];
+                    properties["marker-color"] = markerColor;
+                    properties["marker-size"] = "medium";
+                } 
+                else if (type === "LineString") {
+                    finalGeometry.coordinates = pairedCoords;
+                    properties["stroke"] = strokeColor;
+                    properties["stroke-width"] = 3;
+                } 
+                else if (type === "Polygon") {
+                    let polyCoords = [...pairedCoords];
+                    const first = polyCoords[0];
+                    const last = polyCoords[polyCoords.length - 1];
+                    
+                    if (first[0] !== last[0] || first[1] !== last[1]) {
+                        polyCoords.push(first);
+                    }
+                    finalGeometry.coordinates = [polyCoords];
+                    
+                    properties["stroke"] = strokeColor;
+                    properties["stroke-width"] = 2;
+                    properties["fill"] = fillColor;
+                    properties["fill-opacity"] = 0.4; 
+                }
+
+                featureCollection.features.push({
+                    type: "Feature",
+                    properties: properties,
+                    geometry: finalGeometry
+                });
+            }
+
+            const outputArea = document.getElementById('outputArea');
+            outputArea.value = JSON.stringify(featureCollection, null, 2);
+        }
+
+        function copyToClipboard() {
+            const outputArea = document.getElementById('outputArea');
+            outputArea.select();
+            document.execCommand('copy');
+            alert('GeoJSON copied to clipboard!');
+        }
+
+        window.onload = generateInputFields;
+    </script>
+</body>
+</html>
